@@ -8,6 +8,8 @@
 namespace index0h\log\base;
 
 use yii\helpers\ArrayHelper;
+use yii\helpers\Json;
+use yii\helpers\VarDumper;
 
 /**
  * Current class needs to write logs on external service exception.
@@ -24,10 +26,17 @@ trait EmergencyTrait
     /**
      * @param array $data Additional information to log messages from target.
      */
-    public function emergencyExport($data)
+    public function emergencyExport($data, $em = true)
     {
-        $this->emergencyPrepareMessages($data);
-        $text = implode("\n", array_map([$this, 'formatMessage'], $this->messages)) . "\n";
+        //$this->emergencyPrepareMessages($data);
+        $text = "";
+        if($em){
+            //$this->emergencyPrepareMessages($data);
+            $data['messageQueue'] = $this->messages;
+            $text .= Json::encode($data);
+        }else{
+            $text = sprintf("\n#########################################\n%s\n#########################################\n", Json::encode($data));
+        }
 
         file_put_contents(\Yii::getAlias($this->emergencyLogFile), $text, FILE_APPEND);
     }
@@ -38,7 +47,9 @@ trait EmergencyTrait
     protected function emergencyPrepareMessages($data)
     {
         foreach ($this->messages as &$message) {
-            $message[0] = ArrayHelper::merge($message[0], ['emergency' => $data]);
+            $message[0] = ArrayHelper::merge($message[0], $data);
+            //$message[0] .= Json::encode($data);
         }
+
     }
 }

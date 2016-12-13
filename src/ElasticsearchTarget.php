@@ -10,44 +10,54 @@ namespace index0h\log;
 use index0h\log\base\EmergencyTrait;
 use index0h\log\base\TargetTrait;
 use yii\log\Target;
+use yii\helpers\VarDumper;
+use yii\helpers\Json;
 
 /**
  * @author Roman Levishchenko <index.0h@gmail.com>
  */
 class ElasticsearchTarget extends Target
 {
-    use TargetTrait;
-    use EmergencyTrait;
+	use TargetTrait;
+	use EmergencyTrait;
 
-    /** @var string Elasticsearch index name. */
-    public $index = 'yii';
+	/** @var string Elasticsearch index name. */
+	public $index = 'yii';
 
-    /** @var string Elasticsearch type name. */
-    public $type = 'log';
+	/** @var string Elasticsearch type name. */
+	public $type = 'log';
 
-    /** @var string Yii Elasticsearch component name. */
-    public $componentName = 'elasticsearch';
+	/** @var string Yii Elasticsearch component name. */
+	public $componentName = 'elasticsearch';
 
-    /**
-     * @inheritdoc
-     */
-    public function export()
-    {
-        try {
-            $messages = array_map([$this, 'formatMessage'], $this->messages);
-            foreach ($messages as &$message) {
-                \Yii::$app->{$this->componentName}->post([$this->index, $this->type], [], $message);
-            }
-        } catch (\Exception $error) {
-            $this->emergencyExport(
-                [
-                    'index' => $this->index,
-                    'type' => $this->type,
-                    'error' => $error->getMessage(),
-                    'errorNumber' => $error->getCode(),
-                    'trace' => $error->getTraceAsString()
-                ]
-            );
-        }
-    }
+	/**
+	 * @inheritdoc
+	 */
+	public function export()
+	{
+		try {
+			$messages = array_map([$this, 'formatMessage'], $this->messages);
+			foreach ($messages as &$message) {
+				$result = \Yii::$app->{$this->componentName}->post([$this->index, $this->type], [], $message);
+				if(!isset($result["created"]) || !$result["created"]){
+					$this->emergencyExport([
+						'index' => $this->index,
+						'type' => $this->type,
+						'message' => $message,
+						'elasticResult' => $result,
+					], false);
+				}
+			}
+		} catch (\Exception $error) {
+			$this->emergencyExport([
+					'elasticExportError' => [
+					'index' => $this->index,
+					'type' => $this->type,
+					'error' => $error->getMessage(),
+					'errorNumber' => $error->getCode(),
+					'trace' => $error->getTrace()
+				]
+			]);
+		}
+	}
 }

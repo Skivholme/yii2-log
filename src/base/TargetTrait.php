@@ -9,145 +9,103 @@ namespace index0h\log\base;
 
 use yii\helpers\ArrayHelper;
 use yii\log\Logger;
+use yii\helpers\VarDumper;
+use yii\helpers\Json;
 
-/**
- * @property string[]    categories     List of message categories that this target is interested in.
- * @property string[]    except         List of message categories that this target is NOT interested in
- * @property int         exportInterval How many messages should be accumulated before they are exported.
- * @property string[]    logVars        List of the PHP predefined variables that should be logged in a message.
- * @property array       messages       The messages that are retrieved from the logger so far by this log target.
- *
- * @method int getLevels() The message levels that this target is interested in.
- * @method array filterMessages(array $messages, int $levels, array $categories, array $except)
- *     Filters the given messages according to their categories and levels.
- * @method void export Exports log [[messages]] to a specific destination.
- *
- * @author Roman Levishchenko <index.0h@gmail.com>
- */
 trait TargetTrait
 {
-    /** @var bool Whether to log a message containing the current user name and ID. */
-    public $logUser = false;
+	/** @var bool Whether to log a message containing the current user name and ID. */
+	public $logUser = false;
 
-    /** @var array Add more context */
-    public $context = [];
-
-    /**
-     * Processes the given log messages.
-     *
-     * @param array $messages Log messages to be processed.
-     * @param bool  $final    Whether this method is called at the end of the current application
+	/**
+     * Returns the text display of the specified level.
+     * @param integer $level the message level, e.g. [[LEVEL_ERROR]], [[LEVEL_WARNING]].
+     * @return string the text display of the level
      */
-    public function collect($messages, $final)
+    public static function getLevelName($level)
     {
-        $this->messages = array_merge(
-            $this->messages,
-            $this->filterMessages($messages, $this->getLevels(), $this->categories, $this->except)
-        );
-        $count = count($this->messages);
-        if (($count > 0) && (($final == true) || ($this->exportInterval > 0) && ($count >= $this->exportInterval))) {
-            $this->addContextToMessages();
-            $this->export();
-            $this->messages = [];
-        }
+        static $levels = [
+            Logger::LEVEL_ERROR => 'error',
+            Logger::LEVEL_WARNING => 'warning',
+            Logger::LEVEL_INFO => 'info',
+            Logger::LEVEL_TRACE => 'trace',
+            Logger::LEVEL_PROFILE => 'profile',
+            Logger::LEVEL_PROFILE_BEGIN => 'profile begin',
+            Logger::LEVEL_PROFILE_END => 'profile end',
+        ];
+        return isset($levels[$level]) ? $levels[$level] : 'unknown';
     }
 
-    /**
-     * Formats a log message.
-     *
-     * @param array $message The log message to be formatted.
-     *
-     * @return string
-     */
-    public function formatMessage($message)
-    {
-        return json_encode($this->prepareMessage($message));
-    }
+	/**
+	 * Formats a log message.
+	 *
+	 * @param array $message The log message to be formatted.
+	 *
+	 * @return string
+	 */
+	public function formatMessage($message)
+	{
+		$result = [];
+		list($text, $level, $category, $timestamp) = $message;
+		$level = static::getLevelName($level);
+		$timestamp = date('c', $timestamp);
 
-    /**
-     * Updates all messages if there are context variables.
-     */
-    protected function addContextToMessages()
-    {
-        $context = $this->getContextMessage();
+		$prefix = $this->getMessagePrefix($message);
 
-        if ($context === []) {
-            return;
-        }
+		$result = ArrayHelper::merge(
+			$this->parseText($text),
+			['level' => $level, 'category' => $category, '@timestamp' => $timestamp]
+		);
 
-        foreach ($this->messages as &$message) {
-            $message[0] = ArrayHelper::merge($context, $this->parseText($message[0]));
-        }
-    }
+		if (isset($message[4]) === true && !empty($message[4])) {
+			$result['trace'] = $message[4];
+		}
 
-    /**
-     * Generates the context information to be logged.
-     *
-     * @return array
-     */
-    protected function getContextMessage()
-    {
-        $context = $this->context;
+		if (isset($message[5]) === true) {
+			$result['duration'] = $message[5];
+		}
 
-        if (($this->logUser === true) && ($user = \Yii::$app->get('user', false)) !== null) {
-            /** @var \yii\web\User $user */
-            $context['userId'] = $user->getId();
-        }
+		$result['info'] = $prefix;
 
-        foreach ($this->logVars as $name) {
-            if (empty($GLOBALS[$name]) === false) {
-                $context[$name] = & $GLOBALS[$name];
-            }
-        }
+		//return Json::encode($result);
+		return Json::encode($result);
+	}
 
-        return $context;
-    }
-
-    /**
-     * Convert's any type of log message to array.
-     *
-     * @param mixed $text Input log message.
-     *
-     * @return array
-     */
-    protected function parseText($text)
-    {
-        $type = gettype($text);
-        switch ($type) {
-            case 'array':
-                return $text;
-            case 'string':
-                return ['@message' => $text];
-            case 'object':
-                return get_object_vars($text);
-            default:
-                return ['@message' => \Yii::t('log', "Warning, wrong log message type '{$type}'")];
-        }
-    }
-
-    /**
-     * Transform log message to assoc.
-     *
-     * @param array $message The log message.
-     *
-     * @return array
-     */
-    protected function prepareMessage($message)
-    {
-        list($text, $level, $category, $timestamp) = $message;
-
-        $level = Logger::getLevelName($level);
-        $timestamp = date('c', $timestamp);
-
-        $result = ArrayHelper::merge(
-            $this->parseText($text),
-            ['level' => $level, 'category' => $category, '@timestamp' => $timestamp]
-        );
-
-        if (isset($message[4]) === true) {
-            $result['trace'] = $message[4];
-        }
-
-        return $result;
-    }
+	/**
+	 * Convert's any type of log message to array.
+	 *
+	 * @param mixed $text Input log message.
+	 *
+	 * @return array
+	 */
+	protected function parseText($text)
+	{
+		$type = gettype($text);
+		switch ($type) {
+			case 'array':
+				if(!isset($text['@message']))
+					$text['@message'] = (string) implode(";", $text);
+				return $text;
+			case 'string':
+				return ['@message' => (string) $text];
+			case 'object':
+				if(is_a($text, "yii\base\ErrorException"))
+					return [
+						"@message" => $text->getMessage(),
+						"file" => $text->getFile(),
+						"line" => $text->getLine(),
+						"trace" => $text->getTrace(),
+						"code" => $text->getCode(),
+						"Exception" => (string) $text,
+					];
+				else
+					return [
+						'@message' => get_class($text),
+						"Object" => get_object_vars($text),
+						"__toString" => method_exists($text, "__toString") ? (string) $text : "",
+					];
+			default:
+				return ['@message' => "Warning, wrong log message type '{$type}'."];
+		}
+	}
 }

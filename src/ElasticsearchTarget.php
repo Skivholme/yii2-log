@@ -39,7 +39,7 @@ class ElasticsearchTarget extends Target
 			$messages = array_map([$this, 'formatMessage'], $this->messages);
 			foreach ($messages as &$message) {
 				$result = \Yii::$app->{$this->componentName}->post([$this->index, $this->type], [], $message);
-				if(!isset($result["created"]) || !$result["created"]){
+				if($result === null || !isset($result["created"]) || !$result["created"]){
 					$this->emergencyExport([
 						'index' => $this->index,
 						'type' => $this->type,

@@ -50,6 +50,7 @@ trait TargetTrait
 		$level = static::getLevelName($level);
 		$timestamp = date('c', $timestamp);
 
+		$context = $this->getContextMessage();
 		$prefix = $this->getMessagePrefix($message);
 
 		$result = ArrayHelper::merge(
@@ -66,6 +67,7 @@ trait TargetTrait
 		}
 
 		$result['info'] = $prefix;
+		$result['info']['context'] = $context;
 
 		//return Json::encode($result);
 		return Json::encode($result);

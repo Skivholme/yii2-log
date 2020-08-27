@@ -84,7 +84,7 @@ trait TargetTrait
         $level = Logger::getLevelName($level);
         $timestamp = date('c', $timestamp);
         $context = $this->getContextMessage();
-        dd($context);
+
         $result = ArrayHelper::merge(
             $this->parseText($text),
             $context,

@@ -105,9 +105,14 @@ trait TargetTrait
                         unset($GLOBALS[$name]['_'.$key]);
                         $GLOBALS[$name][$key] = $value;
                     }
-                    
+                    if (empty($key))
+                    {
+                        unset($GLOBALS[$name][$key]);
+                    }
+
                     if (is_string($value) && strlen($value) > 1500)
                     {
+                        print "key ".$key.PHP_EOL;
                         $context[str_replace('_', '', $name)][$key] = substr($value, 0, 1500)."..(truncated)";
                     }
                 }
@@ -176,10 +181,18 @@ trait TargetTrait
 
         $result = ArrayHelper::merge(
             $this->parseText($text),
-            ['level' => $level, 'category' => $category, '@timestamp' => $timestamp, 'statusCode' => \Yii::$app->response->statusCode]
+            [
+                'level' => $level,
+                'category' => $category,
+                '@timestamp' => $timestamp,
+            ]
         );
-
-        if (isset($message[4]) === true) {
+        if (isset(\Yii::$app->response->statusCode))
+        {
+            $result['statusCode'] = \Yii::$app->response->statusCode;
+        }
+        if (isset($message[4]) === true)
+        {
             $result['trace'] = $message[4];
         }
 

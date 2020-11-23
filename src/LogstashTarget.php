@@ -35,14 +35,15 @@ class LogstashTarget extends \yii\log\Target
 
             fclose($socket);
         } catch (\Exception $error) {
-            $this->emergencyExport(
+            // I dont care about this..
+            /*$this->emergencyExport(
                 [
                     'dsn' => $this->dsn,
                     'error' => $error->getMessage(),
                     'errorNumber' => $error->getCode(),
                     'trace' => $error->getTraceAsString()
                 ]
-            );
+            );*/
         }
     }
 }

@@ -112,7 +112,6 @@ trait TargetTrait
 
                     if (is_string($value) && strlen($value) > 1500)
                     {
-                        print "key ".$key.PHP_EOL;
                         $context[str_replace('_', '', $name)][$key] = substr($value, 0, 1500)."..(truncated)";
                     }
                 }
